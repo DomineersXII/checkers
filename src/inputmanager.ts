@@ -26,6 +26,7 @@ function isValidCell(x: number, y: number): boolean {
 export function listenForMouseClicks() {
     let currentlySelectedPiece: [number, number] | null = null
     let storedMoveablePositions:[number, number][] = []
+    let storedChainedTurnPiece: [number, number] | null = null
     let storedIsTaking = false
 
     document.addEventListener("mousedown", (ev: MouseEvent) => {
@@ -44,22 +45,39 @@ export function listenForMouseClicks() {
                     const midpoint = [(currentlySelectedPiece![0]+ clickedCell[0])/2, (currentlySelectedPiece![1] + clickedCell[1])/2] as [number, number]
 
                     board.removePiece(midpoint)
+
+                    if (board.pieceCanTake(clickedCell) === true) {
+                        storedChainedTurnPiece = [clickedCell[0], clickedCell[1]]
+                        board.chainTurn(clickedCell)
+                    } else {
+                        storedChainedTurnPiece = null
+                    }
                 }
 
                 currentlySelectedPiece = null
                 storedIsTaking = false
                 storedMoveablePositions = []
 
-                board.changeTurn()
+                if (storedChainedTurnPiece === null) {
+                    board.changeTurn()
+                }
 
-                
                 return
             }
         }
 
         const canMove = board.pieceCanMove(clickedCell)
-        if (canMove !== true) {return}
-        
+        const canTake = board.pieceCanTake(clickedCell)
+
+        if (canMove !== true && canTake !== true) {return}
+        if (board.canOtherPieceTake(clickedCell) === true && canTake === false) {return}
+        if (storedChainedTurnPiece !== null ) {
+            if (clickedCell[0] !== storedChainedTurnPiece[0] || clickedCell[1] !== storedChainedTurnPiece[1]) {
+                return
+            }
+        }
+
+
         let moveablePositions = board.possibleTakePositions(clickedCell)
         storedIsTaking = true
 
@@ -87,6 +105,7 @@ export function listenForMouseClicks() {
             storedMoveablePositions = []
             storedIsTaking = false
 
+            console.log(storedChainedTurnPiece)
             return
         }
 

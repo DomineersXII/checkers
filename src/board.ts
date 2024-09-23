@@ -17,6 +17,18 @@ class Board  {
         [1,0,1,0,1,0,1,0],
     ]
 
+    //test for chain turns
+       /* #gameState = [
+           [0,0,0,0,0,0,0,0],
+           [0,2,0,2,0,0,0,0],
+            [1,0,0,0,0,0,0,0],
+            [0,0,0,2,0,0,0,0],
+            [0,0,0,0,1,0,0,0],
+            [0,0,0,0,0,0,0,2],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+        ] */
+
     #positionIsInBoardBounds(position: [number, number]) { //returns whether the given position is in our out of bounds
         const [x,y] = position
 
@@ -180,6 +192,20 @@ class Board  {
         this.#highlightAllPieces()
     }
 
+    chainTurn(piece: [number, number]) {
+        renderGameBoard()
+
+        for (let i = 0; i < this.#gameState.length; i++) {
+            for (let j = 0; j < this.#gameState[i].length; j++) {
+                if (this.#gameState[i][j] > 0) {
+                    drawInputtedPiece([j, i], this.#gameState[i][j])
+                }
+            }
+        }
+
+        highlightLocationOnBoard(piece)
+    }
+
     initialize() {
         renderGameBoard()
         this.#setTurn(Piece.Red) //red is always first
@@ -206,23 +232,38 @@ class Board  {
         if (piece == Piece.Black) { //black
             canMove = this.#canMoveDown(position)
 
-            if (!canMove) {canMove = this.#canTakeDown(position)}
         } else if (piece == Piece.Red) { //red
            canMove = this.#canMoveUp(position)
 
-           if (!canMove) {canMove = this.#canTakeUp(position)}
         } else { //king
             canMove = this.#canMoveUp(position)
 
             if (!canMove) {canMove = this.#canMoveDown(position)}
-            if (!canMove) {canMove = this.#canTakeUp(position)}
-            if (!canMove) {canMove = this.#canTakeDown(position)}
         }
 
         return canMove
     }
 
+    pieceCanTake(position: [number, number]): boolean {
+        const [x, y] = position
+        const piece = this.#gameState[y][x]
 
+        if (piece === 0) {return false}
+        if (this.currentTurn !== piece && this.currentTurn+2 !== piece) {return false}
+
+        let canTake = false
+
+        if (piece == Piece.Black) { //black
+            canTake = this.#canTakeDown(position)
+        } else if (piece == Piece.Red) { //red
+            canTake = this.#canTakeUp(position)
+        } else { //king
+            canTake = this.#canTakeUp(position)
+            if (!canTake) {canTake = this.#canTakeDown(position)}
+        }
+
+        return canTake
+    }
 
     possibleMovePositions(position: [number, number]): [number, number][] {
         const [x, y] = position
@@ -264,21 +305,58 @@ class Board  {
         }
     }
 
+    canOtherPieceTake(exclude: [number, number]): boolean {
+        let canTake = false
+
+        for (let i = 0; i < this.#gameState.length; i++) {
+            for (let j = 0; j < this.#gameState[i].length; j++) {
+                if (i === exclude[0] && j === exclude[1]) {
+                    continue
+                }
+
+                if (this.pieceCanTake([j, i])) {
+                    canTake = true
+                }
+            }
+        }
+
+        return canTake
+    }
+
     #highlightAllPieces() {
         let piecesCanMove = false
+        const moveablePieces : [number,number][] = []
+        const capturingPieces : [number, number][] = []
 
         for (let i = 0; i < this.#gameState.length; i++) {
             for (let j = 0; j < this.#gameState[i].length; j++) {
                 if (this.#gameState[i][j] === this.currentTurn || this.#gameState[i][j] === this.currentTurn+2) {
                     const canMove = this.pieceCanMove([j, i])
+                    const canTake = this.pieceCanTake([j, i])
 
-                    if (canMove === true) {
+                    if (canTake === false && canMove === true) {
                         piecesCanMove = true
-                        highlightLocationOnBoard([j, i])
+                        moveablePieces.push([j, i])
+                    }
+
+                    if (canTake === true) {
+                        piecesCanMove = true
+                        capturingPieces.push([j, i])
                     }
                 }
             }
         }
+
+        if (capturingPieces.length === 0) {
+            for (let i = 0; i < moveablePieces.length; i++) {
+                highlightLocationOnBoard(moveablePieces[i])
+            }
+        } else {
+            for (let i = 0; i < capturingPieces.length; i++) {
+                highlightLocationOnBoard(capturingPieces[i])
+            }
+        }
+        
 
         if (piecesCanMove === false) {
             if (this.currentTurn === 1) {
